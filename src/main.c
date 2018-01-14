@@ -9,7 +9,7 @@
 #include <pcap.h>
 #include <arpa/inet.h>
 #include <sys/stat.h>
-
+#include <pthread.h>
 
 #include "trace.h"
 #include "packet.h"
@@ -175,12 +175,8 @@ packet_process_udp(ThreadData* td, const char* udp_packet, const char* saddr, co
     const char* cp = udp_packet;
     udphdr* udp_hdr = (udphdr*)udp_packet;
     u_int16_t udp_dl = ntohs(udp_hdr->uh_length);
-    u_int16_t dport;
     struct radius_hdr* radhdr;
     u_int16_t rad_dl;
-    int radius_has_ip = 0;
-    int radius_has_name = 0;
-    int radius_has_location = 0;
     int radius_bytes_left;
     struct radius_info info;
 
@@ -304,12 +300,11 @@ int
 packet_process(const char* raw_data, const struct pcap_pkthdr* pkthdr)
 {
     const char* cp = raw_data;
-    const char* cpE = raw_data + cfg.snap_len;
     ethhdr* eth_hdr;
     iphdr*  ip_hdr;
     vlhdr* vl_hdr;
     u_int8_t ip_hl, tcp_hl, udp_hl;
-    unsigned short dport, ip_dl, tcp_dl, udp_dl, ip_offs;
+    unsigned short dport, tcp_dl, udp_dl, ip_offs;
 
 
     t_stats.pkt_count_start++;
@@ -482,8 +477,8 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h,
 
     if( NULL != bytes)
     {
-        packCnt ++;
-        packet_process(bytes, h);
+        packCnt++;
+        packet_process((char*)bytes, h);
     }
 
 
@@ -508,7 +503,8 @@ capture_main()
     char errbuf[PCAP_ERRBUF_SIZE];
     memset(errbuf, 0, PCAP_ERRBUF_SIZE);
     time_t current;
-    int packCnt, retV;
+    int retV;
+    const int PROCESS_ALL_PACKETS = 0;
 
     if (cfg.mode == USE_INTERFACE)
     {
@@ -528,9 +524,20 @@ capture_main()
     /*TODO: break loop on SIGINT*/
     /*TODO: reload configuration on SIGUSR1 */
 
-    packCnt = 0;
+    retV = pcap_loop(cap, PROCESS_ALL_PACKETS, packet_handler, NULL);
 
-    retV = pcap_loop(cap,0,packet_handler,NULL);
+    if (retV == 0)
+    {
+        LOG(LOG_INFO, "pcap finished processing\n");
+    }
+    else if (retV == -1)
+    {
+        LOG(LOG_INFO, "pcap terminated on signal\n");
+    }
+    else
+    {
+        LOG(LOG_FATAL, "pcap terminated on error\n");
+    }
 
     if(cap != NULL)
     {
@@ -595,7 +602,7 @@ void* thr_routine(void* _ptr)
     const char* cp;
     iphdr*  ip_hdr;
     u_int8_t ip_hl;
-    unsigned short dport, ip_dl, tcp_hl;
+    unsigned short dport, tcp_hl;
     struct in_addr tmp_addr;
     char saddr[16];
     char daddr[16];
@@ -605,7 +612,9 @@ void* thr_routine(void* _ptr)
     pthread_mutex_init(&td->stats_mtx, NULL);
 
     if (td->t_index == 1)
+    {
         td->is_first_thread = 1;
+    }
 
     init_db(td);
 
@@ -617,7 +626,6 @@ void* thr_routine(void* _ptr)
 
 again:
     sem_wait(&td->sema);
-    //printf("%d -- waked, saved packs %d\n",thrIndex,td->p.packs_saved);
 
     for (cnt = 0; cnt < td->p.packs_saved; cnt ++)
     {
@@ -648,7 +656,8 @@ again:
         {
             packet_process_udp(td, cp,saddr,daddr);
         }
-        else {
+        else 
+        {
             // can't be here
         }
 
@@ -667,13 +676,11 @@ again:
         td->packs_processed ++;
     }
 
-    //printf("%d -- went to sleep (%d processed)\n",thrIndex,td->packs_processed);
-
     pthread_mutex_lock(&td->udp_p_mtx);
 
     if (td->udp_p.packs_saved)
-    // move all this packets to regular bucket
     {
+        // move all this packets to regular bucket
         char *b;
         for (cnt = 0; cnt < td->udp_p.packs_saved; cnt++)
         {
@@ -687,16 +694,18 @@ again:
     }
     pthread_mutex_unlock(&td->udp_p_mtx);
 
-
-
     td->is_processing = 0;
 
     if (!td->needToFinish)
+    {
         goto again;
+    }
 
     close_db(td);
 
     td->hasFinished = 1;
+
+    return _ptr;
 }
 
 /**
@@ -788,16 +797,16 @@ int main(int argc, char *argv[])
     time(&start);
     printf("HTTP/RADIUS (%s) sniffer started: %s\n", VERSION, ctime(&start));
     printf("Configuration: \n");
-    printf("       number of threads     : %d\n", cfg.threads_num);
-    printf("       thread bucket size    : %d packets\n", cfg.packets_per_bucket);
-    printf("       URL size              : %d bytes\n", cfg.url_len);
+    printf("       number of threads     : %lu\n", cfg.threads_num);
+    printf("       thread bucket size    : %lu packets\n", cfg.packets_per_bucket);
+    printf("       URL size              : %u bytes\n", cfg.url_len);
     printf("       support SSL           : %d\n", cfg.ssl_sni_enabled);
-    printf("       snap len              : %d bytes\n", cfg.snap_len);
-    printf("       file rotation period  : %d seconds\n", cfg.period);
-    printf("       connect to REDIS      : %s:%d\n", cfg.redis_host, cfg.redis_port);
+    printf("       snap len              : %lu bytes\n", cfg.snap_len);
+    printf("       file rotation period  : %lu seconds\n", cfg.period);
+    printf("       connect to REDIS      : %s:%u\n", cfg.redis_host, cfg.redis_port);
     printf("       read from interface   : %s\n", cfg.interface);
     printf("       read from file        : %s\n", cfg.tracefile);
-    printf("       log period            : %d seconds\n", cfg.period_between_prints);
+    printf("       log period            : %lu seconds\n", cfg.period_between_prints);
 
     init_traffic_statistics(&t_stats, start, cfg.period_between_prints);
     init_subscriber_statistics(&subscr_stats, start, cfg.period_between_prints);

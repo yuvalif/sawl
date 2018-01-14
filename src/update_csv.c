@@ -26,7 +26,7 @@ void rotate_location_file(ThreadData* td, time_t now)
         }
         else
         {
-            sprintf(closedFilename, "./output/location/location_%lu.csv",td->t_index,(unsigned long)now);
+            sprintf(closedFilename, "./output/location/location_%lu.csv", (unsigned long)now);
             if(rename(filename, closedFilename) != 0)
             {
                 LOG(LOG_ERR, "Failed to move location file during rotation. Error: %s\n",
@@ -67,7 +67,7 @@ void rotate_host_file(ThreadData* td, time_t now)
         }
         else
         {
-            sprintf(closedFilename, "./output/T_%03d/host/host_%lu.csv",td->t_index,(unsigned long)now);
+            sprintf(closedFilename, "./output/T_%03d/host/host_%lu.csv", td->t_index, (unsigned long)now);
             if(rename(filename, closedFilename) != 0)
             {
                 LOG(LOG_ERR, "Failed to move host file during rotation. Error: %s\n",

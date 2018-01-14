@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <pcap/pcap.h>
+#include <pthread.h>
 #include "stats.h"
 #include "utils.h"
 
@@ -113,9 +114,9 @@ void print_traffic_statistics(struct traffic_stats* stats, time_t current, int l
     if (cap)
     {
         pcap_stats(cap, &stats->ps_start);
-        printf ("PCAP received packets:           %20llu %20llu\n", stats->ps_start.ps_recv - stats->ps_period.ps_recv, stats->ps_start.ps_recv);
-        printf ("PCAP dropped packets:            %20llu %20llu\n", stats->ps_start.ps_drop - stats->ps_period.ps_drop, stats->ps_start.ps_drop);
-        printf ("PCAP if-dropped packets:         %20llu %20llu\n", stats->ps_start.ps_ifdrop - stats->ps_period.ps_ifdrop, stats->ps_start.ps_ifdrop);
+        printf ("PCAP received packets:           %20u %20u\n", stats->ps_start.ps_recv - stats->ps_period.ps_recv, stats->ps_start.ps_recv);
+        printf ("PCAP dropped packets:            %20u %20u\n", stats->ps_start.ps_drop - stats->ps_period.ps_drop, stats->ps_start.ps_drop);
+        printf ("PCAP if-dropped packets:         %20u %20u\n", stats->ps_start.ps_ifdrop - stats->ps_period.ps_ifdrop, stats->ps_start.ps_ifdrop);
         stats->ps_period = stats->ps_start;
     }
     

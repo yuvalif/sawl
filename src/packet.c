@@ -1,5 +1,3 @@
-/* packet.c */
-
 #include <stdio.h>
 #include <string.h>
 #include <arpa/inet.h>
@@ -162,12 +160,14 @@ int ssl_find_host_name(const char* _p, int len, char* host, int hostLen, int* is
 
         // fix the last byte to look for
         if (p + n < pe)
+        {
             pe = p + n;
+        }
 
         while (p < pe)
         {
             int nameType;
-            char *name;
+            unsigned char *name;
             int nameLen;
 
             nameType = *p++;

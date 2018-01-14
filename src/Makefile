@@ -5,9 +5,9 @@ VERSION = 0.1.0
 endif
 
 ifeq ($(DBG),on)
-CFLAGS?=-O0 -g -Wall -I../inc/
+CFLAGS?=-O0 -g -Wall -Wno-sequence-point -I../inc/
 else
-CFLAGS?=-O2 -Wall -I../inc/
+CFLAGS?=-O2 -Wall -Wno-sequence-point -I../inc/
 endif
 LDFLAGS?=
 

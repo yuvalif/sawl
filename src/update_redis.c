@@ -55,7 +55,7 @@ int set_to_redis(ThreadData* td, const char* ip, const char* name)
     redisReply *reply = NULL;
 
     if (!td->is_first_thread)
-        return;
+        return 0;
 
     if (td->redis_context == NULL)
     {
@@ -75,7 +75,7 @@ int del_from_redis(ThreadData* td, const char* ip)
     redisReply *reply = NULL;
 
     if (!td->is_first_thread)
-        return;
+        return 0;
 
     if (td->redis_context == NULL)
     {

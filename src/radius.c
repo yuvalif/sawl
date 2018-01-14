@@ -101,7 +101,8 @@ void append_radius_info(struct radius_attr *ra, struct radius_info* info)
             if (vsa->type == TGPP_USER_LOCATION_INFO_ID)
             {
                 unsigned short cell_id;
-                unsigned int lte_cell_id;
+                // LTE cell ID not needed for now
+                //unsigned int lte_cell_id;
                 switch (vsa->value[0])
                 {
                     case 0:

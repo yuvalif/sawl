@@ -1,5 +1,5 @@
 #ifndef __UTILS_H__
-#define __UTILST_H__
+#define __UTILS_H__
 
 #include <semaphore.h>
 #include <stdio.h>

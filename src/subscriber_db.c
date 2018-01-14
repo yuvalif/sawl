@@ -9,11 +9,6 @@
 #include "subscriber_db.h"
 #include "utils.h"
 
-//static struct subscriber_stats* g_stats;
-//static int synch_with_redis = 0;
-//static struct ip_to_name_entry* ip_to_name_table  = NULL;
-
-
 static void set_to_db_internal(ThreadData* td, const char* ip, const char* name)
 {
     struct ip_to_name_entry* s = NULL;
@@ -65,7 +60,7 @@ void init_db(ThreadData* td)
 {
     LOG(LOG_INFO, "Initializing subscriber DB\n");
     init_csv(td);
-    if (cfg.redis_host == NULL || strlen(cfg.redis_host) == 0)
+    if (cfg.redis_host[0] == 0)
     {
         LOG(LOG_INFO, "REDIS updates are disabled\n");
         return;
