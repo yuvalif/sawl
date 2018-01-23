@@ -1,4 +1,4 @@
-DIRS = src
+DIRS = src hiredis
 BUILDDIRS = $(DIRS:%=build-%)
 CLEANDIRS = $(DIRS:%=clean-%)
 
@@ -11,8 +11,10 @@ clean: $(CLEANDIRS)
 $(CLEANDIRS): 
 	$(MAKE) -C $(@:clean-%=%) clean
 
+docker: all Dockerfile
+	docker build -t sawld .
 
 .PHONY: subdirs $(DIRS)
 .PHONY: subdirs $(BUILDDIRS)
 .PHONY: subdirs $(CLEANDIRS)
-.PHONY: all clean
+.PHONY: all clean docker

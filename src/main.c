@@ -19,12 +19,18 @@
 
 #include "utils.h"
 
+/* configuration object */
 HttpSnifferCfg cfg;
-ThreadData *thrArr;
+/* array of worker threads */
+ThreadData* thrArr;
 
 struct traffic_stats t_stats;
 struct subscriber_stats subscr_stats;
 
+/**
+ * initialize the global configuration object with default values
+ * these values would be used when not provided in trhe commandline
+ */
 void init_cfg()
 {
     memset(&cfg,0,sizeof(cfg));
@@ -44,10 +50,9 @@ void init_cfg()
 }
     
 /**
- * Help function to print usage information.
+ * Help function to print usage information
  */
-void
-print_usage(const char* pro_name)
+void print_usage(const char* pro_name)
 {
     printf("Usage: %s [-i interface | -f tracefile] \n\
           [-r redis_host[:port]]  \n\
@@ -65,8 +70,10 @@ print_usage(const char* pro_name)
             pro_name);
 }
 
-void
-print_version(const char* pro_name)
+/**
+ * print version. version may be set in Makefile
+ */
+void print_version(const char* pro_name)
 {
 #ifdef VERSION 
     const char* version = VERSION;
@@ -80,75 +87,92 @@ void add_packet_to_current_thread(const char* p, int len, int isUdp);
 
 void add_packet_to_all_threads(const char* p, int len);
 
+/* return values for packet processing */
 #define PACKET_PROCESS_FAIL -1
 #define PACKET_PROCESS_OK 0
 
-int
-packet_process_tcp(ThreadData* td, const char* tcp_packet,
+/** 
+ * process a TCP packet
+ */
+int packet_process_tcp(ThreadData* td, const char* tcp_packet,
         const char* saddr, const char* daddr, u_int16_t dport, u_int16_t tcp_dl)
 {
     int retV = PACKET_PROCESS_OK;
     const char* cp = tcp_packet;
 
-    if (dport == 443)
-    {
+    if (dport == 443) {
+        /* may be SSL packet */
         char host[HOST_NAME_MAX_LEN];
-        int retv,isHelloMessage=0;
-        retv = ssl_find_host_name(cp, tcp_dl, host, HOST_NAME_MAX_LEN, &isHelloMessage);
-        if (retv < 0)
-        {
-            if (isHelloMessage)
+        int isHelloMessage = 0;
+        const int retv = ssl_find_host_name(cp, tcp_dl, host, HOST_NAME_MAX_LEN, &isHelloMessage);
+        
+        if (retv < 0) {
+            /* could not find hostname */
+            if (isHelloMessage) {
+                /* SNI may be in handshake messages, but could not eb extracted */
                 td->t_stats_short.ssl_no_sni++;
-            else 
+            }
+            else {
+                /* not a handshake message */
                 td->t_stats_short.ssl_no_handshake++;
+            }
             return PACKET_PROCESS_FAIL;
         }
+
         td->t_stats_short.ssl_sni++;
-        LOG(LOG_INFO, "SSL handshake with server-name-extension at packet %llu %s->%s has host %s\n", t_stats.pkt_count_start, saddr, daddr, host);
-        if (cfg.url_len == 0)
+        LOG(LOG_INFO, "SSL handshake with server-name-extension at packet %llu %s->%s has host %s\n", 
+                t_stats.pkt_count_start, saddr, daddr, host);
+
+        if (cfg.url_len == 0) {
             set_host_to_db(td, saddr, host);
-        else
+        }
+        else {
             set_url_to_db(td, saddr,"",host);
+        }
         return PACKET_PROCESS_OK;
     }
-    else if (dport != 80)
-    {
-        // can't be here
+    else if (dport != 80) {
+        /* can't be here: only port 443 and 80 packets should call this function */
         return PACKET_PROCESS_FAIL;
     }
 
     /* Process packets of flows which carry HTTP traffic */
     {
-        char* h, *u;
-        int   hLen, uLen, r;
-        char  hst[HOST_NAME_MAX_LEN];
+        char* h; /* hostname */
+        char* u; /* url */
+        int hLen; /* hostname length */
+        int uLen; /* url length */
+        char hst[HOST_NAME_MAX_LEN];
+        
+        const int r = http_process((char*)cp, tcp_dl, &h, &hLen, (cfg.url_len > 0) ? &u : NULL, &uLen);
 
-        r = http_process((char*)cp,tcp_dl,&h,&hLen,(cfg.url_len > 0)?&u:NULL,&uLen);
-
-        if (r < 0)
-            // http_process says this is not valid HTTP request packet
+        if (r < 0) {
+            /* http_process says this is not valid HTTP request packet 
+             * not necessarily an issue, as port 80 may be used for other applications
+             * */
             td->t_stats_short.tcp_no_http_request++;
-        else {
-            // it is valid HTTP request
-            td->t_stats_short.tcp_http_request ++;
+        }
+        else 
+        {
+            /* it is valid HTTP request */
+            td->t_stats_short.tcp_http_request++;
 
-
-            if (h && hLen < HOST_NAME_MAX_LEN-1)
-            {
-                // the url and host may overlap in the last byte and these
-                // two may be used together and both need to be zero terminated strings
-                // thus I copy the host (it's generally shorter) to a separate buffer
-                // TODO: the http_process may tell us whether url and host do overlap
-                // and thus this copy may be prevented in most situations
-                // or set_host_to_db & set_url_to_db may be modified to handle pointer and length
-                // and not zero terminated strings
+            if (h && hLen < HOST_NAME_MAX_LEN-1) {
+                /* the url and host may overlap in the last byte and these
+                 * two may be used together and both need to be zero terminated strings
+                 * thus I copy the host (it's generally shorter) to a separate buffer
+                 * TODO: the http_process may tell us whether url and host do overlap
+                 * and thus this copy may be prevented in most situations
+                 * or set_host_to_db & set_url_to_db may be modified to handle pointer and length
+                 * and not zero terminated strings
+                 */
 
                 memcpy(hst,h,hLen);
                 hst[hLen] = 0;
 
-
-                if (u && uLen >= cfg.url_len)
+                if (u && uLen >= cfg.url_len) {
                     uLen = cfg.url_len - 1;
+                }
 
                 if (u && uLen < cfg.url_len) {
                     char c = u[uLen];
@@ -161,7 +185,6 @@ packet_process_tcp(ThreadData* td, const char* tcp_packet,
                 }
             }
         }
-
 
         retV = (h) ? PACKET_PROCESS_OK: PACKET_PROCESS_FAIL;
     }
@@ -496,7 +519,7 @@ void packet_handler(u_char *user, const struct pcap_pkthdr *h,
 void wake_up_all_threads(int finish);
 int all_threads_finished();
 
-/*TODO: change function header to read configuration object from inside*/
+/*TODO: change function header to read configuration object from inside */
 int
 capture_main()
 {
