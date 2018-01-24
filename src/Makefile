@@ -5,11 +5,12 @@ VERSION = 0.1.0
 endif
 
 ifeq ($(DBG),on)
-CFLAGS?=-O0 -g -Wall -Wno-sequence-point -I../inc/
+CFLAGS?=-O0 -g -Wall -Wno-sequence-point -I../inc/ -I ../hiredis/
 else
-CFLAGS?=-O2 -Wall -Wno-sequence-point -I../inc/
+CFLAGS?=-O2 -Wall -Wno-sequence-point -I../inc/ -I ../hiredis/
 endif
-LDFLAGS?=
+
+LDFLAGS?=-L ../hiredis/
 
 ifeq ($(LOGS),on)
 CFLAGS+=-DLOGS

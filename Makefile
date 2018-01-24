@@ -1,4 +1,4 @@
-DIRS = src hiredis
+DIRS = hiredis src
 BUILDDIRS = $(DIRS:%=build-%)
 CLEANDIRS = $(DIRS:%=clean-%)
 
