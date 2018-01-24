@@ -20,6 +20,8 @@ Usage: ./sawl [-i interface | -f tracefile]
           [-o do not perform TCP/UDP processing]
           [-v print version and exit]
 ```
+Alternatively, following script: `run_sawl.sh` may be used, where configuration will be coming from a file: `sawl.conf`. If the script is used, the log will be written to `/var/log/sawl.log` and not to screen.
+
 ## Building
 In order to build, use `make`, however, software has dependencies with following libraries:
 * libpcap (for reading packets from the interface). On Redhat/Centos/Fedora etc. systems use: `sudo yum install libpcap-devel`
@@ -27,6 +29,10 @@ In order to build, use `make`, however, software has dependencies with following
 * [libhiredis](https://github.com/redis/hiredis) (C interface to REDIS). The `fetch_dependencies.sh` script could be used for that, and calling `make` should build hiredis
 
 ## Docker
-To create a [docker](https://www.docker.com/community-edition) image, use: `make docker`. To run a container based on this image, use: `sudo docker run --rm --net=host -d sawld`. This will run the container in the background and delete it after it finishes.
-
-TODO: Cuntly the configuration for the docker image is static, and output files are not mapped out of the container
+To create a [docker](https://www.docker.com/community-edition) image, use: `make docker`. To run a container based on this image, use: 
+`sudo docker run --rm --net=host -d --name sawl-daemon -v /var/log:/var/log -v <output dir>:/home/sawl/bin/output -v <conf dir>:/home/sawl/conf sawld`
+Where `<output dir>` is a directory on the host where the output files will be generated. And `<conf dir>` is where the conf file for this container should be stored. This will run the container in the background and delete it after it finishes.
+### Redis
+For quick ramp up, subscriber mapping to IP addresses may be persisted into [redis](https://redis.io/). When running in a dockerized environment, this could be achieved by running a redis docker image: `sudo docker run --rm --net=host --name sawl-redis -d -v <host dir>:/data redis`. Where `<host dir>` is a directory on the host where the redis dump file will be persisted.
+### Kubernetes
+In some cases, the host would have multiple network interfaces. In this case multiple docker containers should run, each one with their ouwn configuration (number of workers in each container is also dependend with available hardware). To orchestrate these containers, together with the redis container used for persistency, [kubernetes](https://kubernetes.io/) should be used.
