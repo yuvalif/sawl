@@ -34,5 +34,5 @@ To create a [docker](https://www.docker.com/community-edition) image, use: `make
 Where `<output dir>` is a directory on the host where the output files will be generated. And `<conf dir>` is where the conf file for this container should be stored. This will run the container in the background and delete it after it finishes.
 ### Redis
 For quick ramp up, subscriber mapping to IP addresses may be persisted into [redis](https://redis.io/). When running in a dockerized environment, this could be achieved by running a redis docker image: `sudo docker run --rm --net=host --name sawl-redis -d -v <host dir>:/data redis`. Where `<host dir>` is a directory on the host where the redis dump file will be persisted.
-### Kubernetes
-In some cases, the host would have multiple network interfaces. In this case multiple docker containers should run, each one with their ouwn configuration (number of workers in each container is also dependend with available hardware). To orchestrate these containers, together with the redis container used for persistency, [kubernetes](https://kubernetes.io/) should be used.
+### Orchestration
+In some cases, the host would have multiple network interfaces. In this case multiple docker containers should run, each one with their oun configuration (number of workers in each container is also dependend with available hardware).
